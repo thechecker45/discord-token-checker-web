@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DISCORD TOKEN CHECKER</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header class="glass">
+            <h1>🔴 DISCORD TOKEN CHECKER</h1>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <div id="connection-status" style="color: #4caf50; font-size: 0.8rem;">● Connected</div>
+                <a href="/logout"
+                    style="color: white; text-decoration: none; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 5px;">Logout</a>
+            </div>
+        </header>
+
+        <!-- Stats Panel -->
+        <div class="dashboard">
+            <div class="glass stat-card">
+                <span class="stat-label">Total Tokens</span>
+                <span class="stat-value" id="stat-total">0</span>
+            </div>
+            <div class="glass stat-card">
+                <span class="stat-label">Valid Tokens</span>
+                <span class="stat-value text-success" id="stat-valid">0</span>
+            </div>
+            <div class="glass stat-card">
+                <span class="stat-label">Invalid Tokens</span>
+                <span class="stat-value text-danger" id="stat-invalid">0</span>
+            </div>
+            <div class="glass stat-card">
+                <span class="stat-label">Nitro Hits</span>
+                <span class="stat-value text-warning" id="stat-nitro">0</span>
+            </div>
+        </div>
+
+        <div class="dashboard" style="grid-template-columns: 1fr 2fr;">
+            <!-- Controls -->
+            <div class="glass controls-section">
+                <h3>🛠 Operations</h3>
+
+                <div class="form-group">
+                    <label>Tokens (Paste List)</label>
+                    <textarea id="token-input" rows="5" placeholder="MTA...&#10;OTk..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Proxies (Optional)</label>
+                    <textarea id="proxy-input" rows="3" placeholder="ip:port&#10;user:pass@ip:port"></textarea>
+                </div>
+
+                <div class="form-group" style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label>Delay (sec)</label>
+                        <input type="number" id="delay-input" value="0.5" step="0.1">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <button class="btn" id="start-btn" onclick="startCheck()">🚀 Start Check</button>
+                    <button class="btn btn-secondary" id="stop-btn" onclick="stopCheck()" disabled
+                        style="margin-top: 10px;">🛑 Stop</button>
+                </div>
+            </div>
+
+            <!-- Console -->
+            <div class="glass controls-section">
+                <h3>💻 System Log</h3>
+                <div id="console-window" class="console-window">
+                    <div class="log-status">System initialized... Waiting for input.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        Developed By <strong>TheChecker</strong> |
+        <a href="https://guns.lol/thechecker" target="_blank">TheChecker Webpage</a>
+    </footer>
+
+    <script>
+        const socket = io();
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const consoleWindow = document.getElementById('console-window');
+
+        // Socket Events
+        socket.on('connect', () => {
+            document.getElementById('connection-status').style.color = '#4caf50';
+            document.getElementById('connection-status').innerText = '● Connected';
+        });
+
+        socket.on('disconnect', () => {
+            document.getElementById('connection-status').style.color = '#f44336';
+            document.getElementById('connection-status').innerText = '● Disconnected';
+        });
+
+        socket.on('status_update', (data) => {
+            log(data.msg, 'status');
+        });
+
+        socket.on('log_entry', (data) => {
+            log(data.msg, data.type);
+        });
+
+        socket.on('stats_update', (data) => {
+            animateValue("stat-valid", parseInt(document.getElementById('stat-valid').innerText), data.valid, 500);
+            animateValue("stat-invalid", parseInt(document.getElementById('stat-invalid').innerText), data.invalid, 500);
+            animateValue("stat-nitro", parseInt(document.getElementById('stat-nitro').innerText), data.nitro, 500);
+
+            // Just set total directly or logic might get weird with large lists
+            document.getElementById('stat-total').innerText = data.total;
+        });
+
+        socket.on('process_complete', () => {
+            setRunning(false);
+        });
+
+        // Functions
+        function startCheck() {
+            const tokens = document.getElementById('token-input').value.split('\n').filter(t => t.trim().length > 0);
+            const proxies = document.getElementById('proxy-input').value.split('\n').filter(p => p.trim().length > 0);
+            const delay = document.getElementById('delay-input').value;
+
+            if (tokens.length === 0) {
+                alert("Please enter at least one token!");
+                return;
+            }
+
+            setRunning(true);
+            log("Sending request to server...", "status");
+
+            fetch('/api/start_check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tokens: tokens,
+                    proxies: proxies,
+                    use_proxies: proxies.length > 0,
+                    delay: delay
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'error') {
+                        alert(data.message);
+                        setRunning(false);
+                    }
+                });
+        }
+
+        function stopCheck() {
+            fetch('/api/stop', { method: 'POST' })
+                .then(() => log("Stopping process...", "error"));
+        }
+
+        function setRunning(isRunning) {
+            startBtn.disabled = isRunning;
+            stopBtn.disabled = !isRunning;
+            document.getElementById('token-input').disabled = isRunning;
+        }
+
+        function log(msg, type) {
+            const div = document.createElement('div');
+            div.className = `log-entry ${type}`;
+            div.innerText = `> ${msg}`;
+            consoleWindow.appendChild(div);
+            consoleWindow.scrollTop = consoleWindow.scrollHeight;
+        }
+
+        function animateValue(id, start, end, duration) {
+            if (start === end) return;
+            const obj = document.getElementById(id);
+            const range = end - start;
+            let current = start;
+            const increment = end > start ? 1 : -1;
+            const stepTime = Math.abs(Math.floor(duration / range));
+
+            // If step is too fast, just set it
+            if (stepTime < 10) {
+                obj.innerText = end;
+                return;
+            }
+
+            const timer = setInterval(() => {
+                current += increment;
+                obj.innerText = current;
+                if (current == end) {
+                    clearInterval(timer);
+                }
+            }, stepTime);
+        }
+    </script>
+</body>
+
+</html>

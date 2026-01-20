@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - DISCORD TOKEN CHECKER</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- Custom Admin Styles are now in style.css -->
+</head>
+
+<body>
+    <div class="container">
+        <header class="glass">
+            <h1>🛡️ ADMIN DASHBOARD</h1>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <div style="color: var(--accent-color); font-size: 0.9rem;">Logged as Admin</div>
+                <a href="/" class="btn btn-secondary" style="width: auto; padding: 8px 15px;">Main Site</a>
+                <a href="/logout" class="btn btn-secondary" style="width: auto; padding: 8px 15px;">Logout</a>
+            </div>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="glass alert-{{ category if category in ['success', 'error'] else 'error' }}"
+            style="margin-bottom: 20px; padding: 15px;">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="admin-grid">
+            <!-- Create User -->
+            <div class="glass controls-section">
+                <h3>➕ Create User</h3>
+                <form action="/admin/add_user" method="POST">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" name="username" required placeholder="User name...">
+                    </div>
+                    <div class="form-group">
+                        <label>Membership Duration</label>
+                        <select name="duration"
+                            style="width: 100%; padding: 12px; background: rgba(0,0,0,0.3); color: white; border: 1px solid var(--glass-border); border-radius: 8px;">
+                            <option value="1">1 Day</option>
+                            <option value="7">1 Week</option>
+                            <option value="30">1 Month</option>
+                            <option value="90">3 Months</option>
+                            <option value="lifetime">Lifetime</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn">Create User & Generate Key</button>
+                    <p style="font-size: 0.8rem; color: #888; margin-top: 10px;">
+                        * Password will be same as generated Access Key.
+                    </p>
+                </form>
+
+                <hr style="border-color: rgba(255,255,255,0.1); margin: 30px 0;">
+
+                <h3>🔐 Update Admin</h3>
+                <form action="/admin/update_admin" method="POST">
+                    <div class="form-group">
+                        <label>New Password</label>
+                        <input type="password" name="new_password" required placeholder="New password...">
+                    </div>
+                    <button type="submit" class="btn btn-secondary">Update Password</button>
+                </form>
+            </div>
+
+            <!-- User List -->
+            <div class="glass controls-section">
+                <h3>👥 User Management</h3>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Access Key</th>
+                                <th>Expiry</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>{{ user.id }}</td>
+                                <td>
+                                    {{ user.username }}
+                                    {% if user.is_admin %} <span class="badge bg-warning">ADMIN</span> {% endif %}
+                                </td>
+                                <td style="font-family: monospace;">{{ user.access_key if user.access_key else '-' }}
+                                </td>
+                                <td>
+                                    {% if user.is_admin %}
+                                    Lifetime
+                                    {% elif user.expiry_date %}
+                                    {{ user.expiry_date.strftime('%Y-%m-%d') }}
+                                    {% else %}
+                                    Lifetime
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.is_banned %}
+                                    <span class="badge bg-danger">BANNED</span>
+                                    {% else %}
+                                    <span class="badge bg-success">ACTIVE</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not user.is_admin %}
+                                    <a href="/admin/toggle_ban/{{ user.id }}"
+                                        class="action-btn {{ 'bg-success' if user.is_banned else 'bg-warning-btn' }}">
+                                        {{ 'Unban' if user.is_banned else 'Ban' }}
+                                    </a>
+                                    <a href="/admin/delete_user/{{ user.id }}" class="action-btn bg-danger"
+                                        onclick="return confirm('Are you sure?')">Del</a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        Developed By <strong>TheChecker</strong> |
+        <a href="https://guns.lol/thechecker" target="_blank">TheChecker Webpage</a>
+    </footer>
+</body>
+
+</html>
