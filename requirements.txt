@@ -1,0 +1,8 @@
+flask
+requests
+colorama
+eventlet
+flask-socketio
+flask-login
+flask-sqlalchemy
+werkzeug
