@@ -72,7 +72,7 @@ Uygulama, aşağıdaki `User` yapısına sahip ilişkisel bir SQLite veritabanı
 
 1. **Klonlayın ve Klasöre Girin**:
    ```bash
-   git clone [repo-adresiniz]
+   git clone https://github.com/thechecker45/discord-token-checker-web.git
    cd WebDashboard
    ```
 
